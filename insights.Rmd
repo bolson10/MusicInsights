@@ -1,20 +1,58 @@
 ---
 title: "Music Insights"
 author: "Brenndan Olson"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
-First, we need tidyverse to handle data importing and wrangling...
+##First, we need tidyverse to handle data importing and wrangling, and then read in the survey and preferences data frames
 
 ```{r}
-install.packages("tidyverse")
 library(tidyverse)
 
 survey <- read_csv("https://raw.githubusercontent.com/introdsci/MusicSurvey/master/music-survey.csv")
 preferences <- read_csv("https://raw.githubusercontent.com/introdsci/MusicSurvey/master/preferences-survey.csv")
 
-nrow(preferences)
-colnames(preferences)
+#nrow(preferences)
+#colnames(preferences)
+```
+
+##Now we are going to changle column names of survey to be easier to use, by getting rid of the spaces
+
+```{r}
+colnames(survey)[colnames(survey)=="Timestamp"] <- "time_submitted"
 colnames(survey)[colnames(survey)=="What is your pseudonym?"] <- "pseudonym"
-colnames(survey)[colnames(survey)=="First, we are going to create a pseudonym for you to keep this survey anonymous (more or less). Which pseudonym generator would you prefer?"] <- "which_pseudonym_generator"
+colnames(survey)[colnames(survey)=="First, we are going to create a pseudonym for you to keep this survey anonymous (more or less). Which pseudonym generator would you prefer?"] <- "pseudonym_generator"
+colnames(survey)[colnames(survey)=="Sex"] <- "sex"
+colnames(survey)[colnames(survey)=="Major"] <- "academic_major"
+colnames(survey)[colnames(survey)=="Academic Year"] <- "academic_level"
+colnames(survey)[colnames(survey)=="Year you were born (YYYY)"] <- "year_born"
+colnames(survey)[colnames(survey)=="Which musical instruments/talents do you play? (Select all that apply)"] <- "instrument_list"
+colnames(survey)[colnames(survey)=="Artist"] <- "favorite_song_artist"
+colnames(survey)[colnames(survey)=="Song"] <- "favorite_song"
+colnames(survey)[colnames(survey)=="Link to song (on Youtube or Vimeo)"] <- "favorite_song_link"
+```
+
+##Getting the libraries to help create clean and tidy data
+```{r}
+library(dplyr)
+library(tidyr)
+```
+##We are going to transform the two current tables into four: person, favorite_song, ratings, and musical_talents(later)
+```{r}
+person <- dplyr::tibble(time_submitted = survey$time_submitted,pseudonym_generator = survey$pseudonym_generator, pseudonym = survey$pseudonym, sex = survey$sex, academic_major = survey$academic_major, academic_level = survey$academic_level, year_born = survey$year_born)
+favorite_song <- dplyr::tibble(pseudonym = survey$pseudonym, favorite_song_artist = survey$favorite_song_artist, favorite_song = survey$favorite_song, favorite_song_link = survey$favorite_song_link)
+ratings <- preferences
+ratings <- tidyr::gather(ratings,"artist_song","rating",3:ncol(preferences))
+colnames(ratings)[colnames(ratings) == "Timestamp"] <- "time_submitted"
+```
+
+##We are going to fix the time_submitted column on person and ratings to be more universal
+
+```{r}
+library(readr)
+person$time_submitted <- as.POSIXlt(parse_datetime(survey$time_submitted,"%m/%d/%y %H:%M",na=c("","NA")))
+ratings$time_submitted <- as.POSIXlt(parse_datetime(preferences$time_submitted,"%m/%d/%y %H:%M",na=c("","NA")))
+
 ```
