@@ -1,0 +1,46 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+We are going to be adding some continous data to our person table, and use that to build some models. First I am going to run all of the code from the previous work I was doing with this data
+```{r}
+library(caret)
+library(knitr)
+library(dplyr)
+library(tidyverse)
+purl("insights.Rmd", output = "part1.r")
+source("part1.r")
+```
+
+First, I am going to add a column avg_rating to person table with a function called get_average_ratings, that will take in the pseudonyms as an argument and determine the average rating for each pseudonym
+```{r}
+get_average_ratings <- function(pseudonyms) {
+  x <- c()
+  for(i in pseudonyms){
+    avg_rating <-mean(ratings$rating[ratings$pseudonym == i])
+    x <- c(x,avg_rating)
+  }
+  return(x)
+}
+```
+I am now going to call that function on the pseudonym column of person, and I am going to omit any NA values given to us because it causes a error later on. That person with the NA did not do the music survey and cannot provide us any helpful information on this analysis. At the same time I do not want to lose all of their data, so I will use a new table called person_for_model to omit the NA value peacefully.
+```{r}
+avg_song_ratings <- get_average_ratings(person$pseudonym)
+person <- dplyr::mutate(person,avg_song_rating = avg_song_ratings)
+person_for_model <- person %>%
+  na.omit(person$avg_song_rating)
+```
+Now we can split the data into two tables, the train and test table. Explain them. 
+```{r}
+index <- createDataPartition(person_for_model$avg_song_rating, p = 0.75, list = FALSE) 
+train <- person_for_model[index, ]
+test <- person_for_model[-index, ]
+```
+We can now use the train data to create some models, and try to discover any independent variables that can help predict avg_song_rating
+```{r}
+model <- lm(train, formula = avg_song_rating~academic_major + academic_level + year_born)
+summary(model)
+```
