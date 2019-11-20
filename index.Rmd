@@ -1,5 +1,6 @@
 ---
-title: "R Notebook"
+title: "Modeling of Music Ratings"
+author: "Brenndan Olson"
 output:
   html_document:
     df_print: paged
@@ -44,35 +45,31 @@ We can now use the train data to create some models, and try to discover any ind
 model <- lm(train, formula = avg_song_rating~academic_major + academic_level + year_born)
 summary(model)
 ```
-The p-value for year_born is very high, so I am going to run the model again without it
+The p-value for academic_level is very high, so I am going to run the model again without it
 ```{r}
-model <- lm(train, formula = avg_song_rating~academic_major + academic_level)
+model <- lm(train, formula = avg_song_rating~academic_major + year_born)
 summary(model)
 ```
-That did bring down the other p-values, but academic_level is now the highest. Just like with year_born, I am going to run the model again without using academic_level
-```{r}
-model <- lm(train, formula = avg_song_rating~academic_major)
-summary(model)
-```
+The p-value for year_born is quite high, but without it there would only be a categorical variable, and the equation would only make one value for each category, which wouldn't be very predictive.
+
 Now that we have a model, we can compare the values our model gives us to those inside the test table. I an going to create a function that goes through every entry in the test table and does the calculation for avg_song_rating depending on the academic major, and adds the intercept to get y^. We can compare those to the actual values in the table and determine how accurate the model is.
 ```{r}
 test_model <- function(model)
 {
-  modeled_avg_ratings <- c()
-  for(i in test$academic_major)
+  modeled_ratings <- c()
+  for(i in 1:9)
   {
     x<-0
-    if(i == "Computer Information Systems")
+    if(test$academic_major[i] == "Computer Information Systems")
       x<-model$coefficients[2]
-    if(i == "Computer Science")
-    {
+    if(test$academic_major[i] == "Computer Science")
       x<-model$coefficients[3]
-    }
-    if(i == "Math")
+    if(test$academic_major[i] == "Math")
       x<-model$coefficients[4]
-   modeled_avg_ratings <- c(modeled_avg_ratings,x + model$coefficients[1])
+    yhat <- x + test$year_born[i]*model$coefficients[5] + model$coefficients[1]
+    modeled_ratings <- c(modeled_ratings,yhat)
   }
-  return(modeled_avg_ratings)
+  return(modeled_ratings)
 }
 modeled_avg_ratings <- test_model(model)
 test_avg_ratings <- test$avg_song_rating
@@ -83,6 +80,6 @@ plot(x=1:length(test_avg_ratings),y=sort(test_avg_ratings),type="p",col="red")
   points(x=1:length(modeled_avg_ratings),y=sort(modeled_avg_ratings))
   title(main = "Model average_ratings(black) vs data average_ratings(red)")
 ``` 
-  Since the data inside test only had data from Computer Science majors, they all have the same value. Unfortunately there was only a few other instances of CINS or MATH, so by chance it was not included in test. This is a horrible predictor of average song rating, because the number is completely dependent on a categorical variable. Academic Major was the variable with the lowest p-value, so I still decided to use it because the other variables would not be correct anyways, so I might as well follow best practices.
+  Since the data inside test only had data from Computer Science majors, they all have the same value. Unfortunately there was only a few other instances of CINS or MATH, so by chance it was not included in test. These two variables are a horrible predictor of average rating, and this should have been expected because of the high p-values in the model.
 
 To be fair a accurate model would require a lot more data to be collected, and not within a specific group. Upper-classmen STEM majors inside one class would not be near enough to figure out how someone would rate music. If enough data was collected on people within each major, and for every major, then we could start to determine the relationship between that and their ratings of music.
