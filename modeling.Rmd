@@ -7,15 +7,15 @@ output:
 
 We are going to be adding some continous data to our person table, and use that to build some models. First I am going to run all of the code from the previous work I was doing with this data
 ```{r}
-library(caret)
-library(knitr)
-library(dplyr)
-library(tidyverse)
+suppressWarnings(library(caret))
+suppressWarnings(library(knitr))
+suppressWarnings(library(dplyr))
+suppressWarnings(library(tidyverse))
 purl("insights.Rmd", output = "part1.r")
 source("part1.r")
 ```
 
-First, I am going to add a column avg_rating to person table with a function called get_average_ratings, that will take in the pseudonyms as an argument and determine the average rating for each pseudonym
+First, I am going to add a column avg_rating to the person table with a function called get_average_ratings, that will take in the pseudonyms as an argument and determine the average rating for each pseudonym
 ```{r}
 get_average_ratings <- function(pseudonyms) {
   x <- c()
@@ -33,14 +33,56 @@ person <- dplyr::mutate(person,avg_song_rating = avg_song_ratings)
 person_for_model <- person %>%
   na.omit(person$avg_song_rating)
 ```
-Now we can split the data into two tables, the train and test table. Explain them. 
+Now we can split the data into two tables, the train and test table using createDataPartition. The train table will contain 75% of the data, and the test table will hold the remaning 25%. We are going to build a model with test to figure out an equation to try and calculate average song rating based on other variables. 
 ```{r}
 index <- createDataPartition(person_for_model$avg_song_rating, p = 0.75, list = FALSE) 
 train <- person_for_model[index, ]
 test <- person_for_model[-index, ]
 ```
-We can now use the train data to create some models, and try to discover any independent variables that can help predict avg_song_rating
+We can now use the train data to create some models, and try to discover any independent variables that can help predict avg_song_rating. The biggest thing we are looking at are the p-values, and the smaller it is the more it can predict average song rating. The larger values mean that variable does not predict it, and should be taken out to make the model more precise.
 ```{r}
 model <- lm(train, formula = avg_song_rating~academic_major + academic_level + year_born)
 summary(model)
 ```
+The p-value for year_born is very high, so I am going to run the model again without it
+```{r}
+model <- lm(train, formula = avg_song_rating~academic_major + academic_level)
+summary(model)
+```
+That did bring down the other p-values, but academic_level is now the highest. Just like with year_born, I am going to run the model again without using academic_level
+```{r}
+model <- lm(train, formula = avg_song_rating~academic_major)
+summary(model)
+```
+Now that we have a model, we can compare the values our model gives us to those inside the test table. I an going to create a function that goes through every entry in the test table and does the calculation for avg_song_rating depending on the academic major, and adds the intercept to get y^. We can compare those to the actual values in the table and determine how accurate the model is.
+```{r}
+test_model <- function(model)
+{
+  modeled_avg_ratings <- c()
+  for(i in test$academic_major)
+  {
+    x<-0
+    if(i == "Computer Information Systems")
+      x<-model$coefficients[2]
+    if(i == "Computer Science")
+    {
+      x<-model$coefficients[3]
+    }
+    if(i == "Math")
+      x<-model$coefficients[4]
+   modeled_avg_ratings <- c(modeled_avg_ratings,x + model$coefficients[1])
+  }
+  return(modeled_avg_ratings)
+}
+modeled_avg_ratings <- test_model(model)
+test_avg_ratings <- test$avg_song_rating
+```
+I am going to plot the two on a scatter plot, and since this is just a quick visualization I am going to use the plot() function, because it is easy to add more graphs inside one plot.
+```{r}
+plot(x=1:length(test_avg_ratings),y=sort(test_avg_ratings),type="p",col="red")
+  points(x=1:length(modeled_avg_ratings),y=sort(modeled_avg_ratings))
+  title(main = "Model average_ratings(black) vs data average_ratings(red)")
+``` 
+  Since the data inside test only had data from Computer Science majors, they all have the same value. Unfortunately there was only a few other instances of CINS or MATH, so by chance it was not included in test. This is a horrible predictor of average song rating, because the number is completely dependent on a categorical variable. Academic Major was the variable with the lowest p-value, so I still decided to use it because the other variables would not be correct anyways, so I might as well follow best practices.
+
+To be fair a accurate model would require a lot more data to be collected, and not within a specific group. Upper-classmen STEM majors inside one class would not be near enough to figure out how someone would rate music. If enough data was collected on people within each major, and for every major, then we could start to determine the relationship between that and their ratings of music.
